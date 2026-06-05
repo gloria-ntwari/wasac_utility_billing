@@ -67,7 +67,7 @@
       "path": "/auth/verify-otp",
       "body": {
         "email": "gloriantwari@gmail.com",
-        "otpCode": "{{otpFromEmail}}"
+        "otp": "{{otpFromEmail}}"
       }
     },
     {
@@ -99,15 +99,35 @@
         "password": "Ntwari@123"
       },
       "saveFromResponse": {
-        "customerId": "data.customerId",
-        "customerToken": "data.token"
+        "customerId": "data.customerId"
       },
-      "note": "customerId is returned in signup/login response — use it to fetch bills before paying"
+      "note": "Signup does NOT return a JWT — OTP is emailed; verify before login"
     },
     {
       "step": 6,
       "actor": "CUSTOMER",
-      "description": "Customer login (optional if step 5 token already saved)",
+      "description": "Resend OTP if email not received (optional)",
+      "method": "POST",
+      "path": "/auth/request-otp",
+      "body": {
+        "email": "irasubizagloria928@gmail.com"
+      }
+    },
+    {
+      "step": 7,
+      "actor": "CUSTOMER",
+      "description": "Verify customer OTP from email (required before first login)",
+      "method": "POST",
+      "path": "/auth/verify-otp",
+      "body": {
+        "email": "irasubizagloria928@gmail.com",
+        "otp": "{{otpFromEmail}}"
+      }
+    },
+    {
+      "step": 8,
+      "actor": "CUSTOMER",
+      "description": "Customer login — only works after OTP verification",
       "method": "POST",
       "path": "/auth/login",
       "body": {
@@ -119,7 +139,7 @@
       }
     },
     {
-      "step": 7,
+      "step": 9,
       "actor": "ADMIN",
       "description": "Configure WATER flat tariff (skip if already exists for billing period)",
       "method": "POST",
@@ -136,7 +156,7 @@
       }
     },
     {
-      "step": 8,
+      "step": 10,
       "actor": "ADMIN",
       "description": "List customers — confirm customerId",
       "method": "GET",
@@ -144,7 +164,7 @@
       "headers": { "Authorization": "Bearer {{adminToken}}" }
     },
     {
-      "step": 9,
+      "step": 11,
       "actor": "ADMIN",
       "description": "Create WATER meter and assign to customer",
       "method": "POST",
@@ -162,7 +182,7 @@
       }
     },
     {
-      "step": 10,
+      "step": 12,
       "actor": "OPERATOR",
       "description": "View meters (operator can see assigned meters)",
       "method": "GET",
@@ -170,7 +190,7 @@
       "headers": { "Authorization": "Bearer {{operatorToken}}" }
     },
     {
-      "step": 11,
+      "step": 13,
       "actor": "OPERATOR",
       "description": "Capture monthly meter reading — billing month/year taken from readingDate",
       "method": "POST",
@@ -187,7 +207,7 @@
       }
     },
     {
-      "step": 12,
+      "step": 14,
       "actor": "FINANCE",
       "description": "Finance login",
       "method": "POST",
@@ -201,7 +221,7 @@
       }
     },
     {
-      "step": 13,
+      "step": 15,
       "actor": "ADMIN_OR_FINANCE",
       "description": "Generate bill — tariff auto-selected from meter type + reading period",
       "method": "POST",
@@ -219,7 +239,7 @@
       }
     },
     {
-      "step": 14,
+      "step": 16,
       "actor": "FINANCE",
       "description": "Approve bill — customer notified by email",
       "method": "PUT",
@@ -228,7 +248,7 @@
       "expectedMessage": "Bill approved — customer notified to pay"
     },
     {
-      "step": 15,
+      "step": 17,
       "actor": "CUSTOMER",
       "description": "Customer views own profile — copy customerId if not saved from signup",
       "method": "GET",
@@ -239,7 +259,7 @@
       }
     },
     {
-      "step": 16,
+      "step": 18,
       "actor": "CUSTOMER",
       "description": "Customer views own bills by customerId — pick APPROVED bill id and outstandingBalance to pay",
       "method": "GET",
@@ -248,7 +268,7 @@
       "alternatePath": "/bills?customerId={{customerId}}"
     },
     {
-      "step": 17,
+      "step": 19,
       "actor": "CUSTOMER",
       "description": "Customer views single bill detail by bill id",
       "method": "GET",
@@ -256,7 +276,7 @@
       "headers": { "Authorization": "Bearer {{customerToken}}" }
     },
     {
-      "step": 18,
+      "step": 20,
       "actor": "CUSTOMER",
       "description": "Customer pays full outstanding balance",
       "method": "POST",
@@ -272,7 +292,7 @@
       "expectedMessage": "Bill status automatically updated to PAID — notification triggered"
     },
     {
-      "step": 19,
+      "step": 21,
       "actor": "CUSTOMER",
       "description": "Customer checks notifications",
       "method": "GET",

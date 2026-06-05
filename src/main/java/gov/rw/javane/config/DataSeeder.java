@@ -41,6 +41,26 @@ public class DataSeeder implements CommandLineRunner {
         seedStaffUser("admin01@gmail.com", "admin01@123", "Test Admin", "0788000010", RoleName.ROLE_ADMIN);
         seedStaffUser("finance@gmail.com", "finance@123", "Test Finance Officer", "0788000011", RoleName.ROLE_FINANCE);
         seedStaffUser("operator@gmail.com", "operator@123", "Test Operator", "0788000012", RoleName.ROLE_OPERATOR);
+        grandfatherExistingAccounts();
+    }
+
+    /**
+     * Existing accounts created before customer OTP signup never received an otpCode.
+     * Keep them verified; new signups always have otpCode set and must verify.
+     */
+    private void grandfatherExistingAccounts() {
+        int count = 0;
+        for (AppUser user : appUserRepository.findAll()) {
+            if (!user.isEmailVerified() && user.getOtpCode() == null) {
+                user.setEmailVerified(true);
+                user.setOtpExpiresAt(null);
+                appUserRepository.save(user);
+                count++;
+            }
+        }
+        if (count > 0) {
+            log.info("Grandfathered {} legacy account(s) as OTP-verified", count);
+        }
     }
 
     private void seedStaffUser(String email, String rawPassword, String fullNames, String phone, RoleName roleName) {

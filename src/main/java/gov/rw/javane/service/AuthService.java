@@ -10,6 +10,7 @@ import gov.rw.javane.domain.enums.RoleName;
 import gov.rw.javane.domain.enums.UserStatus;
 import gov.rw.javane.dto.auth.AuthResponse;
 import gov.rw.javane.dto.auth.LoginRequest;
+import gov.rw.javane.dto.auth.RequestOtpRequest;
 import gov.rw.javane.dto.auth.SignupRequest;
 import gov.rw.javane.dto.auth.VerifyOtpRequest;
 import gov.rw.javane.common.validation.FieldCrossValidator;
@@ -20,6 +21,7 @@ import gov.rw.javane.security.JwtService;
 import gov.rw.javane.security.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -28,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -44,6 +47,11 @@ public class AuthService {
     private final JwtService jwtService;
     private final CustomUserDetailsServiceBridge userDetailsService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final OtpService otpService;
+    private final EmailService emailService;
+
+    @Value("${app.otp.expiration-minutes:10}")
+    private int otpExpirationMinutes;
 
     @Transactional
     public AuthResponse signup(SignupRequest request) {
@@ -68,13 +76,18 @@ public class AuthService {
         Role customerRole = roleRepository.findByName(RoleName.ROLE_CUSTOMER)
                 .orElseThrow(() -> new BadRequestException("Customer role is not configured"));
 
+        String otpCode = otpService.generateOtp();
+        Instant otpExpiresAt = Instant.now().plus(otpExpirationMinutes, ChronoUnit.MINUTES);
+
         AppUser user = AppUser.builder()
                 .fullNames(request.fullNames().trim())
                 .email(email)
                 .phoneNumber(request.phoneNumber().trim())
                 .password(passwordEncoder.encode(request.password()))
                 .status(UserStatus.ACTIVE)
-                .emailVerified(true)
+                .emailVerified(false)
+                .otpCode(otpCode)
+                .otpExpiresAt(otpExpiresAt)
                 .roles(Set.of(customerRole))
                 .build();
         appUserRepository.save(user);
@@ -91,12 +104,16 @@ public class AuthService {
         customerRepository.save(customer);
         user.setCustomer(customer);
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-        String token = jwtService.generateToken(userDetails);
+        boolean emailSent = emailService.sendCustomerVerificationOtpEmail(
+                email, user.getFullNames(), otpCode, otpExpirationMinutes);
+
+        String message = emailSent
+                ? "Registration successful. An OTP has been sent to " + email + ". Verify with POST /auth/verify-otp before logging in."
+                : "Registration successful. OTP email could not be sent — call POST /auth/request-otp to receive your verification code.";
 
         return new AuthResponse(
-                token,
-                "Customer account registered successfully",
+                null,
+                message,
                 user.getId(),
                 customer.getId(),
                 user.getEmail(),
@@ -114,10 +131,9 @@ public class AuthService {
             throw new UnauthorizedException("Your account is inactive. Contact the administrator.");
         }
 
-        boolean isStaff = user.getRoles().stream()
-                .anyMatch(r -> r.getName() != RoleName.ROLE_CUSTOMER);
-        if (isStaff && !user.isEmailVerified()) {
-            throw new UnauthorizedException("Email not verified. Check your inbox for the OTP and call POST /auth/verify-otp before logging in.");
+        if (!user.isEmailVerified()) {
+            throw new UnauthorizedException(
+                    "Email not verified. Call POST /auth/request-otp to receive an OTP, then POST /auth/verify-otp before logging in.");
         }
 
         authenticationManager.authenticate(
@@ -142,6 +158,24 @@ public class AuthService {
     }
 
     @Transactional
+    public void requestOtp(RequestOtpRequest request) {
+        String email = request.email().toLowerCase().trim();
+        AppUser user = appUserRepository.findByEmail(email)
+                .orElseThrow(() -> new BadRequestException("No account found with email: " + email));
+
+        if (user.isEmailVerified()) {
+            throw new BadRequestException("Email is already verified. You can login now.");
+        }
+
+        issueOtp(user);
+        boolean emailSent = emailService.sendCustomerVerificationOtpEmail(
+                email, user.getFullNames(), user.getOtpCode(), otpExpirationMinutes);
+        if (!emailSent) {
+            throw new BadRequestException("OTP could not be sent. Check SMTP configuration or try again later.");
+        }
+    }
+
+    @Transactional
     public void verifyOtp(VerifyOtpRequest request) {
         String email = request.getEmail().toLowerCase().trim();
         AppUser user = appUserRepository.findByEmail(email)
@@ -151,10 +185,10 @@ public class AuthService {
             throw new BadRequestException("Email is already verified. You can login now.");
         }
         if (user.getOtpCode() == null || user.getOtpExpiresAt() == null) {
-            throw new BadRequestException("No active OTP for this account. Contact your administrator.");
+            throw new BadRequestException("No active OTP for this account. Call POST /auth/request-otp to receive one.");
         }
         if (Instant.now().isAfter(user.getOtpExpiresAt())) {
-            throw new BadRequestException("OTP has expired. Contact your administrator to resend credentials.");
+            throw new BadRequestException("OTP has expired. Call POST /auth/request-otp to receive a new code.");
         }
         if (!user.getOtpCode().equals(request.getOtp().trim())) {
             throw new BadRequestException("Invalid OTP. Please check the code sent to your email.");
@@ -163,6 +197,12 @@ public class AuthService {
         user.setEmailVerified(true);
         user.setOtpCode(null);
         user.setOtpExpiresAt(null);
+        appUserRepository.save(user);
+    }
+
+    private void issueOtp(AppUser user) {
+        user.setOtpCode(otpService.generateOtp());
+        user.setOtpExpiresAt(Instant.now().plus(otpExpirationMinutes, ChronoUnit.MINUTES));
         appUserRepository.save(user);
     }
 

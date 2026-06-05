@@ -71,6 +71,48 @@ public class EmailService {
         }
     }
 
+    public boolean sendCustomerVerificationOtpEmail(String toEmail, String fullNames,
+                                                    String otpCode, int otpExpirationMinutes) {
+        String from = resolveFromAddress();
+        if (from == null || from.isBlank()) {
+            log.warn("OTP email not sent to {} — SMTP/from address is not configured", toEmail);
+            return false;
+        }
+
+        String body = """
+                Dear %s,
+
+                Welcome to the Utility Billing System.
+
+                Your email verification OTP: %s
+                (Valid for %d minutes)
+
+                Getting started:
+                1. Verify your email: POST /auth/verify-otp with your email and the OTP above.
+                2. Login: POST /auth/login with your email and password.
+
+                Did not register? Ignore this email.
+
+                Regards,
+                WASAC / REG Utility Billing System
+                """.formatted(fullNames, otpCode, otpExpirationMinutes);
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(from);
+        message.setTo(toEmail);
+        message.setSubject("Verify your Utility Billing customer account");
+        message.setText(body);
+
+        try {
+            mailSender.send(message);
+            log.info("Customer OTP email sent to {}", toEmail);
+            return true;
+        } catch (MailException ex) {
+            log.error("Failed to send customer OTP email to {}: {}", toEmail, ex.getMessage());
+            return false;
+        }
+    }
+
     public boolean sendCustomerNotificationEmail(String toEmail, String fullName, String message, String subject) {
         String from = resolveFromAddress();
         if (from == null || from.isBlank()) {
