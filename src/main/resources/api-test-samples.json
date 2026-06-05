@@ -1,0 +1,241 @@
+{
+  "baseUrl": "http://localhost:8085",
+  "swaggerUi": "http://localhost:8085/swagger-ui.html",
+  "authHeaderNote": "After login, click Authorize in Swagger and paste: Bearer <token>",
+  "seededAccounts": {
+    "admin": {
+      "email": "admin01@gmail.com",
+      "password": "admin01@123",
+      "role": "ROLE_ADMIN"
+    },
+    "finance": {
+      "email": "finance@gmail.com",
+      "password": "finance@123",
+      "role": "ROLE_FINANCE"
+    }
+  },
+  "testFlow": [
+    {
+      "step": 1,
+      "role": "ADMIN",
+      "description": "Admin login — copy token from response.data.token",
+      "method": "POST",
+      "path": "/auth/login",
+      "body": {
+        "email": "admin01@gmail.com",
+        "password": "admin01@123"
+      }
+    },
+    {
+      "step": 2,
+      "role": "ADMIN",
+      "description": "Create Operator (password auto-generated & emailed; omit password field)",
+      "method": "POST",
+      "path": "/users",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "fullNames": "Jean Operator",
+        "email": "operator@gmail.com",
+        "phoneNumber": "250788100001",
+        "role": "ROLE_OPERATOR",
+        "status": "ACTIVE"
+      }
+    },
+    {
+      "step": 3,
+      "role": "ADMIN",
+      "description": "Create Finance officer (optional — finance@gmail.com is already seeded)",
+      "method": "POST",
+      "path": "/users",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "fullNames": "Marie Finance",
+        "email": "finance.officer@gmail.com",
+        "phoneNumber": "250788100002",
+        "role": "ROLE_FINANCE",
+        "status": "ACTIVE"
+      }
+    },
+    {
+      "step": 4,
+      "role": "PUBLIC",
+      "description": "Customer self-registration — save response.data.userId and customer nationalId",
+      "method": "POST",
+      "path": "/auth/signup",
+      "body": {
+        "fullNames": "Eric Customer",
+        "nationalId": "1199780012345678",
+        "email": "eric.customer@gmail.com",
+        "phoneNumber": "250788200001",
+        "address": "KG 15 Ave, Kigali, Rwanda",
+        "password": "Customer@123"
+      }
+    },
+    {
+      "step": 5,
+      "role": "ADMIN",
+      "description": "List customers — copy customer id for meter assignment",
+      "method": "GET",
+      "path": "/customers",
+      "headers": { "Authorization": "Bearer {{adminToken}}" }
+    },
+    {
+      "step": 6,
+      "role": "ADMIN",
+      "description": "Configure WATER tariff (required before billing)",
+      "method": "POST",
+      "path": "/tariffs",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "meterType": "WATER",
+        "tariffType": "FLAT",
+        "flatRate": 350.00,
+        "fixedServiceCharge": 1500.00,
+        "vatRate": 18.00,
+        "latePenaltyRate": 5.00,
+        "effectiveFrom": "2026-01-01"
+      }
+    },
+    {
+      "step": 7,
+      "role": "ADMIN",
+      "description": "Configure ELECTRICITY tier tariff",
+      "method": "POST",
+      "path": "/tariffs",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "meterType": "ELECTRICITY",
+        "tariffType": "TIER",
+        "fixedServiceCharge": 2000.00,
+        "vatRate": 18.00,
+        "latePenaltyRate": 5.00,
+        "effectiveFrom": "2026-01-01",
+        "tiers": [
+          { "fromUnits": 0, "toUnits": 100, "ratePerUnit": 120.00 },
+          { "fromUnits": 101, "toUnits": 300, "ratePerUnit": 180.00 },
+          { "fromUnits": 301, "toUnits": null, "ratePerUnit": 250.00 }
+        ]
+      }
+    },
+    {
+      "step": 8,
+      "role": "ADMIN",
+      "description": "Create meter and assign to customer in one request — replace customerId",
+      "method": "POST",
+      "path": "/meters",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "meterNumber": "WTR-2026-001",
+        "meterType": "WATER",
+        "installationDate": "2026-01-15",
+        "customerId": "{{customerId}}",
+        "status": "ACTIVE"
+      }
+    },
+    {
+      "step": 9,
+      "role": "ADMIN",
+      "description": "Create electricity meter for same customer",
+      "method": "POST",
+      "path": "/meters",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "meterNumber": "ELC-2026-001",
+        "meterType": "ELECTRICITY",
+        "installationDate": "2026-01-15",
+        "customerId": "{{customerId}}",
+        "status": "ACTIVE"
+      }
+    },
+    {
+      "step": 10,
+      "role": "OPERATOR",
+      "description": "Operator login — use seeded operator after admin creates account & verifies OTP",
+      "method": "POST",
+      "path": "/auth/login",
+      "body": {
+        "email": "operator@gmail.com",
+        "password": "{{operatorTempPasswordFromEmail}}"
+      }
+    },
+    {
+      "step": 11,
+      "role": "OPERATOR",
+      "description": "Capture meter reading — auto-generates bill; save billId from response",
+      "method": "POST",
+      "path": "/readings",
+      "headers": { "Authorization": "Bearer {{operatorToken}}" },
+      "body": {
+        "meterId": "{{meterId}}",
+        "previousReading": 100.00,
+        "currentReading": 145.50,
+        "readingDate": "2026-05-01"
+      }
+    },
+    {
+      "step": 12,
+      "role": "FINANCE",
+      "description": "Finance login",
+      "method": "POST",
+      "path": "/auth/login",
+      "body": {
+        "email": "finance@gmail.com",
+        "password": "finance@123"
+      }
+    },
+    {
+      "step": 13,
+      "role": "FINANCE",
+      "description": "List pending bills",
+      "method": "GET",
+      "path": "/bills/status/PENDING_APPROVAL",
+      "headers": { "Authorization": "Bearer {{financeToken}}" }
+    },
+    {
+      "step": 14,
+      "role": "FINANCE",
+      "description": "Approve bill for payment",
+      "method": "PUT",
+      "path": "/bills/{{billId}}/approve",
+      "headers": { "Authorization": "Bearer {{financeToken}}" }
+    },
+    {
+      "step": 15,
+      "role": "FINANCE",
+      "description": "Record partial payment",
+      "method": "POST",
+      "path": "/payments",
+      "headers": { "Authorization": "Bearer {{financeToken}}" },
+      "body": {
+        "billId": "{{billId}}",
+        "amountPaid": 5000.00,
+        "paymentMethod": "MOBILE_MONEY",
+        "paymentDate": "2026-05-10",
+        "referenceNumber": "MM-20260510-001"
+      }
+    },
+    {
+      "step": 16,
+      "role": "FINANCE",
+      "description": "Record full payment (remaining balance) — triggers PAID status + notification",
+      "method": "POST",
+      "path": "/payments",
+      "headers": { "Authorization": "Bearer {{financeToken}}" },
+      "body": {
+        "billId": "{{billId}}",
+        "amountPaid": "{{remainingBalance}}",
+        "paymentMethod": "BANK_TRANSFER",
+        "paymentDate": "2026-05-15",
+        "referenceNumber": "BNK-20260515-001"
+      }
+    },
+    {
+      "step": 17,
+      "role": "FINANCE",
+      "description": "View notifications generated by DB triggers",
+      "method": "GET",
+      "path": "/notifications",
+      "headers": { "Authorization": "Bearer {{financeToken}}" }
+    }
+  ]
+}

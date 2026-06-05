@@ -1,0 +1,385 @@
+{
+  "baseUrl": "http://localhost:8085",
+  "swaggerUi": "http://localhost:8085/swagger-ui.html",
+  "notes": [
+    "Every success response has { message, data, timestamp }.",
+    "Replace {{placeholders}} with UUIDs/tokens from prior step responses.",
+    "Bill generate uses ONLY customerId + meterId + readingId (no tariffId, month, or year).",
+    "Operator password: Admin POST /users emails a temporary password + OTP — Gloria@123 cannot be set via API. After verify-otp, login with the emailed temp password.",
+    "Phone numbers must be exactly 10 digits (e.g. 0788123456). National ID must be exactly 16 digits."
+  ],
+  "accounts": {
+    "admin": { "email": "admin01@gmail.com", "password": "admin01@123" },
+    "operator": { "email": "gloriantwari@gmail.com", "password": "{{temporaryPasswordFromEmail}}" },
+    "finance": { "email": "finance@gmail.com", "password": "finance@123" },
+    "customer": { "email": "irasubizagloria928@gmail.com", "password": "Ntwari@123" }
+  },
+  "variables": {
+    "adminToken": "paste from step 1 response.data.token",
+    "operatorToken": "paste from step 4 response.data.token",
+    "financeToken": "paste from step 12 response.data.token",
+    "customerToken": "paste from step 6 response.data.token",
+    "operatorUserId": "paste from step 2 response.data.id",
+    "customerId": "05e98054-dce0-4091-8e6a-df934996412f",
+    "meterId": "a7e2dd55-dd4b-4cca-804c-532012940bf4",
+    "readingId": "9260d5be-5659-4681-9c65-d285ea552f4f",
+    "billId": "paste from step 11 response.data.id",
+    "billTotalAmount": "paste from step 11 response.data.totalAmount"
+  },
+  "mainFlow": [
+    {
+      "step": 1,
+      "actor": "ADMIN",
+      "description": "Admin login",
+      "method": "POST",
+      "path": "/auth/login",
+      "body": {
+        "email": "admin01@gmail.com",
+        "password": "admin01@123"
+      },
+      "saveFromResponse": {
+        "adminToken": "data.token"
+      }
+    },
+    {
+      "step": 2,
+      "actor": "ADMIN",
+      "description": "Create operator gloriantwari@gmail.com — temp password + OTP sent to email",
+      "method": "POST",
+      "path": "/users",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "fullNames": "Gloria Operator",
+        "email": "gloriantwari@gmail.com",
+        "phoneNumber": "0788000028",
+        "role": "ROLE_OPERATOR",
+        "status": "ACTIVE"
+      },
+      "saveFromResponse": {
+        "operatorUserId": "data.id"
+      }
+    },
+    {
+      "step": 3,
+      "actor": "OPERATOR",
+      "description": "Verify OTP from email (required before first operator login)",
+      "method": "POST",
+      "path": "/auth/verify-otp",
+      "body": {
+        "email": "gloriantwari@gmail.com",
+        "otpCode": "{{otpFromEmail}}"
+      }
+    },
+    {
+      "step": 4,
+      "actor": "OPERATOR",
+      "description": "Operator login — use temporary password from email",
+      "method": "POST",
+      "path": "/auth/login",
+      "body": {
+        "email": "gloriantwari@gmail.com",
+        "password": "{{temporaryPasswordFromEmail}}"
+      },
+      "saveFromResponse": {
+        "operatorToken": "data.token"
+      }
+    },
+    {
+      "step": 5,
+      "actor": "CUSTOMER",
+      "description": "Customer self-registration",
+      "method": "POST",
+      "path": "/auth/signup",
+      "body": {
+        "fullNames": "Gloria Irasubiza",
+        "nationalId": "1199780092891234",
+        "email": "irasubizagloria928@gmail.com",
+        "phoneNumber": "0788928123",
+        "address": "KG 7 Ave, Kigali, Rwanda",
+        "password": "Ntwari@123"
+      },
+      "saveFromResponse": {
+        "customerId": "data.customerId",
+        "customerToken": "data.token"
+      }
+    },
+    {
+      "step": 6,
+      "actor": "CUSTOMER",
+      "description": "Customer login (optional if step 5 token already saved)",
+      "method": "POST",
+      "path": "/auth/login",
+      "body": {
+        "email": "irasubizagloria928@gmail.com",
+        "password": "Ntwari@123"
+      },
+      "saveFromResponse": {
+        "customerToken": "data.token"
+      }
+    },
+    {
+      "step": 7,
+      "actor": "ADMIN",
+      "description": "Configure WATER flat tariff (skip if already exists for billing period)",
+      "method": "POST",
+      "path": "/tariffs",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "meterType": "WATER",
+        "tariffType": "FLAT",
+        "flatRate": 350.00,
+        "fixedServiceCharge": 1500.00,
+        "vatRate": 18.00,
+        "latePenaltyRate": 5.00,
+        "effectiveFrom": "2026-01-01"
+      }
+    },
+    {
+      "step": 8,
+      "actor": "ADMIN",
+      "description": "List customers — confirm customerId",
+      "method": "GET",
+      "path": "/customers",
+      "headers": { "Authorization": "Bearer {{adminToken}}" }
+    },
+    {
+      "step": 9,
+      "actor": "ADMIN",
+      "description": "Create WATER meter and assign to customer",
+      "method": "POST",
+      "path": "/meters",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "meterNumber": "WTR-GLORIA-001",
+        "meterType": "WATER",
+        "installationDate": "2026-01-15",
+        "customerId": "{{customerId}}",
+        "status": "ACTIVE"
+      },
+      "saveFromResponse": {
+        "meterId": "data.id"
+      }
+    },
+    {
+      "step": 10,
+      "actor": "OPERATOR",
+      "description": "View meters (operator can see assigned meters)",
+      "method": "GET",
+      "path": "/meters/all",
+      "headers": { "Authorization": "Bearer {{operatorToken}}" }
+    },
+    {
+      "step": 11,
+      "actor": "OPERATOR",
+      "description": "Capture monthly meter reading — billing month/year taken from readingDate",
+      "method": "POST",
+      "path": "/readings",
+      "headers": { "Authorization": "Bearer {{operatorToken}}" },
+      "body": {
+        "meterId": "{{meterId}}",
+        "previousReading": 100.00,
+        "currentReading": 145.50,
+        "readingDate": "2026-05-01"
+      },
+      "saveFromResponse": {
+        "readingId": "data.id"
+      }
+    },
+    {
+      "step": 12,
+      "actor": "FINANCE",
+      "description": "Finance login",
+      "method": "POST",
+      "path": "/auth/login",
+      "body": {
+        "email": "finance@gmail.com",
+        "password": "finance@123"
+      },
+      "saveFromResponse": {
+        "financeToken": "data.token"
+      }
+    },
+    {
+      "step": 13,
+      "actor": "ADMIN_OR_FINANCE",
+      "description": "Generate bill — tariff auto-selected from meter type + reading period",
+      "method": "POST",
+      "path": "/bills/generate",
+      "headers": { "Authorization": "Bearer {{financeToken}}" },
+      "body": {
+        "customerId": "{{customerId}}",
+        "meterId": "{{meterId}}",
+        "readingId": "{{readingId}}"
+      },
+      "expectedMessage": "Bill generated — tariff applied automatically — customer notified",
+      "saveFromResponse": {
+        "billId": "data.id",
+        "billTotalAmount": "data.totalAmount"
+      }
+    },
+    {
+      "step": 14,
+      "actor": "FINANCE",
+      "description": "Approve bill — customer notified by email",
+      "method": "PUT",
+      "path": "/bills/{{billId}}/approve",
+      "headers": { "Authorization": "Bearer {{financeToken}}" },
+      "expectedMessage": "Bill approved — customer notified to pay"
+    },
+    {
+      "step": 15,
+      "actor": "CUSTOMER",
+      "description": "Customer views own bills",
+      "method": "GET",
+      "path": "/bills",
+      "headers": { "Authorization": "Bearer {{customerToken}}" }
+    },
+    {
+      "step": 16,
+      "actor": "CUSTOMER",
+      "description": "Customer views single bill detail",
+      "method": "GET",
+      "path": "/bills/{{billId}}",
+      "headers": { "Authorization": "Bearer {{customerToken}}" }
+    },
+    {
+      "step": 17,
+      "actor": "CUSTOMER",
+      "description": "Customer pays full outstanding balance",
+      "method": "POST",
+      "path": "/payments",
+      "headers": { "Authorization": "Bearer {{customerToken}}" },
+      "body": {
+        "billId": "{{billId}}",
+        "amountPaid": "{{billTotalAmount}}",
+        "paymentMethod": "MOBILE_MONEY",
+        "paymentDate": "2026-05-10",
+        "referenceNumber": "MM-GLORIA-20260510"
+      },
+      "expectedMessage": "Bill status automatically updated to PAID — notification triggered"
+    },
+    {
+      "step": 18,
+      "actor": "CUSTOMER",
+      "description": "Customer checks notifications",
+      "method": "GET",
+      "path": "/notifications",
+      "headers": { "Authorization": "Bearer {{customerToken}}" }
+    }
+  ],
+  "validationTests": [
+    {
+      "test": "Duplicate nationalId",
+      "method": "POST",
+      "path": "/auth/signup",
+      "body": {
+        "fullNames": "Duplicate Test",
+        "nationalId": "1199780092891234",
+        "email": "duplicate.test@gmail.com",
+        "phoneNumber": "0788000099",
+        "address": "Test Address Kigali",
+        "password": "TestPass@123"
+      },
+      "expectedStatus": 400,
+      "expectedMessage": "Customer with this National ID already exists"
+    },
+    {
+      "test": "currentReading less than previousReading",
+      "method": "POST",
+      "path": "/readings",
+      "headers": { "Authorization": "Bearer {{operatorToken}}" },
+      "body": {
+        "meterId": "{{meterId}}",
+        "previousReading": 200.00,
+        "currentReading": 150.00,
+        "readingDate": "2026-06-01"
+      },
+      "expectedStatus": 400,
+      "expectedMessage": "Current reading must be greater than previous reading"
+    },
+    {
+      "test": "Two readings same meter same month",
+      "method": "POST",
+      "path": "/readings",
+      "headers": { "Authorization": "Bearer {{operatorToken}}" },
+      "body": {
+        "meterId": "{{meterId}}",
+        "previousReading": 145.50,
+        "currentReading": 160.00,
+        "readingDate": "2026-05-15"
+      },
+      "expectedStatus": 409,
+      "expectedMessage": "A reading already exists for this meter in 05/2026"
+    },
+    {
+      "test": "Bill for inactive customer",
+      "method": "POST",
+      "path": "/bills/generate",
+      "headers": { "Authorization": "Bearer {{financeToken}}" },
+      "body": {
+        "customerId": "{{inactiveCustomerId}}",
+        "meterId": "{{meterId}}",
+        "readingId": "{{readingId}}"
+      },
+      "expectedStatus": 403,
+      "expectedMessage": "Inactive customers cannot receive bills"
+    },
+    {
+      "test": "Reading on inactive meter",
+      "method": "POST",
+      "path": "/readings",
+      "headers": { "Authorization": "Bearer {{operatorToken}}" },
+      "body": {
+        "meterId": "{{inactiveMeterId}}",
+        "previousReading": 0.00,
+        "currentReading": 10.00,
+        "readingDate": "2026-07-01"
+      },
+      "expectedStatus": 400,
+      "expectedMessage": "Cannot capture reading on an inactive meter"
+    },
+    {
+      "test": "Request without JWT token",
+      "method": "GET",
+      "path": "/bills",
+      "expectedStatus": 401,
+      "expectedMessage": "Authentication required. Please login with a valid JWT token."
+    },
+    {
+      "test": "Operator tries to approve bill",
+      "method": "PUT",
+      "path": "/bills/{{billId}}/approve",
+      "headers": { "Authorization": "Bearer {{operatorToken}}" },
+      "expectedStatus": 403,
+      "expectedMessage": "You do not have permission to perform this action."
+    },
+    {
+      "test": "Customer views another customer bill",
+      "method": "GET",
+      "path": "/bills/{{anotherCustomerBillId}}",
+      "headers": { "Authorization": "Bearer {{customerToken}}" },
+      "expectedStatus": 403,
+      "expectedMessage": "You do not have permission to perform this action."
+    },
+    {
+      "test": "TIER tariff with flatRate not null",
+      "method": "POST",
+      "path": "/tariffs",
+      "headers": { "Authorization": "Bearer {{adminToken}}" },
+      "body": {
+        "meterType": "ELECTRICITY",
+        "tariffType": "TIER",
+        "flatRate": 100.00,
+        "fixedServiceCharge": 2000.00,
+        "vatRate": 18.00,
+        "latePenaltyRate": 5.00,
+        "effectiveFrom": "2026-08-01",
+        "tiers": [
+          { "fromUnits": 0, "toUnits": 100, "ratePerUnit": 120.00 }
+        ]
+      },
+      "expectedStatus": 400,
+      "expectedMessage": "flatRate must be null for TIER tariffs"
+    }
+  ]
+}
