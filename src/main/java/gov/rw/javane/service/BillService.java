@@ -43,11 +43,16 @@ public class BillService {
     }
 
     @Transactional(readOnly = true)
+    public List<BillResponse> findByCustomerId(UUID customerId) {
+        assertStaffCustomerFilterAccess(customerId);
+        customerService.getCustomer(customerId);
+        return mapBills(billRepository.findByCustomerIdWithDetails(customerId));
+    }
+
+    @Transactional(readOnly = true)
     public List<BillResponse> findAll(UUID customerId) {
         if (customerId != null) {
-            assertStaffCustomerFilterAccess(customerId);
-            customerService.getCustomer(customerId);
-            return mapBills(billRepository.findByCustomerIdWithDetails(customerId));
+            return findByCustomerId(customerId);
         }
 
         AppUser user = securityUtils.currentUser();

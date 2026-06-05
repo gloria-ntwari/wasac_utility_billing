@@ -36,6 +36,13 @@ public class CustomerController {
                 .body(ApiResponse.ok("Customer created successfully", response));
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "View own customer profile — Done by Customer (includes customerId for bill lookup)")
+    public ResponseEntity<ApiResponse<CustomerResponse>> findMe() {
+        return ResponseEntity.ok(ApiResponse.ok("Customer profile retrieved successfully", customerService.findMe()));
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','FINANCE')")
     @Operation(summary = "List all customers — Done by Admin, Operator, or Finance")
@@ -44,8 +51,8 @@ public class CustomerController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','FINANCE')")
-    @Operation(summary = "View customer by ID — Done by Admin, Operator, or Finance")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','FINANCE','CUSTOMER')")
+    @Operation(summary = "View customer by ID — Admin/Operator/Finance (any) or Customer (own profile only)")
     public ResponseEntity<ApiResponse<CustomerResponse>> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok("Customer retrieved successfully", customerService.findById(id)));
     }

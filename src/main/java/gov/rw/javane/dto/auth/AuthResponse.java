@@ -9,6 +9,7 @@ public record AuthResponse(
         String token,
         String message,
         UUID userId,
+        UUID customerId,
         String email,
         String fullNames,
         Set<RoleName> roles

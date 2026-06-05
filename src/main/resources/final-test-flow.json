@@ -101,7 +101,8 @@
       "saveFromResponse": {
         "customerId": "data.customerId",
         "customerToken": "data.token"
-      }
+      },
+      "note": "customerId is returned in signup/login response — use it to fetch bills before paying"
     },
     {
       "step": 6,
@@ -229,21 +230,33 @@
     {
       "step": 15,
       "actor": "CUSTOMER",
-      "description": "Customer views own bills",
+      "description": "Customer views own profile — copy customerId if not saved from signup",
       "method": "GET",
-      "path": "/bills",
-      "headers": { "Authorization": "Bearer {{customerToken}}" }
+      "path": "/customers/me",
+      "headers": { "Authorization": "Bearer {{customerToken}}" },
+      "saveFromResponse": {
+        "customerId": "data.id"
+      }
     },
     {
       "step": 16,
       "actor": "CUSTOMER",
-      "description": "Customer views single bill detail",
+      "description": "Customer views own bills by customerId — pick APPROVED bill id and outstandingBalance to pay",
+      "method": "GET",
+      "path": "/bills/customer/{{customerId}}",
+      "headers": { "Authorization": "Bearer {{customerToken}}" },
+      "alternatePath": "/bills?customerId={{customerId}}"
+    },
+    {
+      "step": 17,
+      "actor": "CUSTOMER",
+      "description": "Customer views single bill detail by bill id",
       "method": "GET",
       "path": "/bills/{{billId}}",
       "headers": { "Authorization": "Bearer {{customerToken}}" }
     },
     {
-      "step": 17,
+      "step": 18,
       "actor": "CUSTOMER",
       "description": "Customer pays full outstanding balance",
       "method": "POST",
@@ -259,7 +272,7 @@
       "expectedMessage": "Bill status automatically updated to PAID — notification triggered"
     },
     {
-      "step": 18,
+      "step": 19,
       "actor": "CUSTOMER",
       "description": "Customer checks notifications",
       "method": "GET",

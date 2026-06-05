@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -97,6 +98,7 @@ public class AuthService {
                 token,
                 "Customer account registered successfully",
                 user.getId(),
+                customer.getId(),
                 user.getEmail(),
                 user.getFullNames(),
                 Set.of(RoleName.ROLE_CUSTOMER)
@@ -125,10 +127,14 @@ public class AuthService {
         String token = jwtService.generateToken(userDetails);
 
         Set<RoleName> roles = user.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
+        UUID customerId = customerRepository.findByUserId(user.getId())
+                .map(Customer::getId)
+                .orElse(null);
         return new AuthResponse(
                 token,
                 "Login successful",
                 user.getId(),
+                customerId,
                 user.getEmail(),
                 user.getFullNames(),
                 roles

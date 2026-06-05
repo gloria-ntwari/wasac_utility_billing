@@ -1,10 +1,13 @@
 package gov.rw.javane.service;
 
 import gov.rw.javane.common.exception.BadRequestException;
+import gov.rw.javane.common.exception.ForbiddenException;
 import gov.rw.javane.common.exception.NotFoundException;
 import gov.rw.javane.domain.entity.AppUser;
 import gov.rw.javane.domain.entity.Customer;
 import gov.rw.javane.domain.enums.CustomerStatus;
+import gov.rw.javane.domain.enums.RoleName;
+import gov.rw.javane.security.SecurityUtils;
 import gov.rw.javane.dto.customer.CustomerRequest;
 import gov.rw.javane.dto.customer.CustomerResponse;
 import gov.rw.javane.mapper.EntityMapper;
@@ -25,6 +28,7 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final AppUserRepository appUserRepository;
     private final BillRepository billRepository;
+    private final SecurityUtils securityUtils;
 
     @Transactional
     public CustomerResponse create(CustomerRequest request) {
@@ -45,7 +49,16 @@ public class CustomerService {
     }
 
     public CustomerResponse findById(UUID id) {
-        return EntityMapper.toCustomerResponse(getCustomer(id));
+        Customer customer = getCustomer(id);
+        assertCustomerViewAccess(customer);
+        return EntityMapper.toCustomerResponse(customer);
+    }
+
+    public CustomerResponse findMe() {
+        AppUser user = securityUtils.currentUser();
+        return customerRepository.findByUserId(user.getId())
+                .map(EntityMapper::toCustomerResponse)
+                .orElseThrow(() -> new NotFoundException("Customer profile not found for current user"));
     }
 
     @Transactional
@@ -93,6 +106,21 @@ public class CustomerService {
     public Customer getCustomer(UUID id) {
         return customerRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Customer not found with id: " + id));
+    }
+
+    private void assertCustomerViewAccess(Customer customer) {
+        AppUser user = securityUtils.currentUser();
+        if (hasRole(user, RoleName.ROLE_CUSTOMER)) {
+            Customer own = customerRepository.findByUserId(user.getId())
+                    .orElseThrow(() -> new NotFoundException("Customer profile not found for current user"));
+            if (!own.getId().equals(customer.getId())) {
+                throw new ForbiddenException("You can only view your own customer profile");
+            }
+        }
+    }
+
+    private boolean hasRole(AppUser user, RoleName roleName) {
+        return user.getRoles().stream().anyMatch(r -> r.getName() == roleName);
     }
 
     private void validateUnique(CustomerRequest request, UUID excludeId) {

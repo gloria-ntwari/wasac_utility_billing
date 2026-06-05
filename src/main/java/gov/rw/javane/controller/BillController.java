@@ -48,7 +48,7 @@ public class BillController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE','CUSTOMER')")
-    @Operation(summary = "List bills — use /bills/all for all; filter with ?customerId=; Customer sees own bills")
+    @Operation(summary = "List bills — Customer: omit param for own bills or pass ?customerId={ownId}; Admin/Finance: filter any customer")
     public ResponseEntity<ApiResponse<List<BillResponse>>> findAll(
             @Parameter(description = "Optional — filter by customer UUID (Admin/Finance)", required = false)
             @RequestParam(required = false) UUID customerId) {
@@ -57,6 +57,15 @@ public class BillController {
                 ? "Customer bills retrieved successfully (" + bills.size() + " found)"
                 : "Bills retrieved successfully (" + bills.size() + " found)";
         return ResponseEntity.ok(ApiResponse.ok(message, bills));
+    }
+
+    @GetMapping("/customer/{customerId}")
+    @PreAuthorize("hasAnyRole('ADMIN','FINANCE','CUSTOMER')")
+    @Operation(summary = "List bills for a customer by customerId — Customer may only use their own id (use id from login/signup or GET /customers/me)")
+    public ResponseEntity<ApiResponse<List<BillResponse>>> findByCustomerId(@PathVariable UUID customerId) {
+        List<BillResponse> bills = billService.findByCustomerId(customerId);
+        return ResponseEntity.ok(ApiResponse.ok(
+                "Customer bills retrieved successfully (" + bills.size() + " found)", bills));
     }
 
     @GetMapping("/{id}")
