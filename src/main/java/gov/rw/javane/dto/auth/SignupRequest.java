@@ -1,6 +1,7 @@
 package gov.rw.javane.dto.auth;
 
 import gov.rw.javane.common.validation.ValidationPatterns;
+import gov.rw.javane.domain.enums.CustomerStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -37,5 +38,8 @@ public record SignupRequest(
         @Pattern(regexp = ValidationPatterns.STRONG_PASSWORD,
                 message = "Password must be at least 8 characters with uppercase, lowercase, digit, special character, and no spaces")
         @Schema(example = "Customer@123")
-        String password
+        String password,
+
+        @Schema(description = "Customer account status — defaults to ACTIVE if omitted", example = "ACTIVE")
+        CustomerStatus status
 ) {}

@@ -41,7 +41,7 @@ public interface TariffVersionRepository extends JpaRepository<TariffVersion, UU
             WHERE t.meterType = :meterType
               AND t.effectiveFrom <= :billingDate
               AND (t.effectiveTo IS NULL OR t.effectiveTo >= :billingDate)
-            ORDER BY t.version DESC
+            ORDER BY t.effectiveFrom DESC, t.version DESC
             """)
     List<TariffVersion> findApplicableTariffs(@Param("meterType") MeterType meterType,
                                               @Param("billingDate") LocalDate billingDate);
@@ -52,7 +52,7 @@ public interface TariffVersionRepository extends JpaRepository<TariffVersion, UU
             WHERE t.meterType = :meterType
               AND t.effectiveFrom <= :billingDate
               AND (t.effectiveTo IS NULL OR t.effectiveTo >= :billingDate)
-            ORDER BY t.version DESC
+            ORDER BY t.effectiveFrom DESC, t.version DESC
             """)
     List<TariffVersion> findApplicableTariffsWithTiers(@Param("meterType") MeterType meterType,
                                                      @Param("billingDate") LocalDate billingDate);

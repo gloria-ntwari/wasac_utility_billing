@@ -98,7 +98,7 @@ public class AuthService {
                 .email(email)
                 .phoneNumber(request.phoneNumber().trim())
                 .address(request.address().trim())
-                .status(CustomerStatus.ACTIVE)
+                .status(request.status() != null ? request.status() : CustomerStatus.ACTIVE)
                 .user(user)
                 .build();
         customerRepository.save(customer);

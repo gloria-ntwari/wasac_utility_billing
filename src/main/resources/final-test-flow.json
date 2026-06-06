@@ -4,7 +4,7 @@
   "notes": [
     "Every success response has { message, data, timestamp }.",
     "Replace {{placeholders}} with UUIDs/tokens from prior step responses.",
-    "Bill generate uses ONLY customerId + meterId + readingId (no tariffId, month, or year).",
+    "Bill generate uses ONLY readingId (customer and meter are derived from the reading).",
     "Operator password: Admin POST /users emails a temporary password + OTP — Gloria@123 cannot be set via API. After verify-otp, login with the emailed temp password.",
     "Phone numbers must be exactly 10 digits (e.g. 0788123456). National ID must be exactly 16 digits."
   ],
@@ -228,11 +228,9 @@
       "path": "/bills/generate",
       "headers": { "Authorization": "Bearer {{financeToken}}" },
       "body": {
-        "customerId": "{{customerId}}",
-        "meterId": "{{meterId}}",
         "readingId": "{{readingId}}"
       },
-      "expectedMessage": "Bill generated — tariff applied automatically — customer notified",
+      "expectedMessage": "Bill generated — tariff applied automatically",
       "saveFromResponse": {
         "billId": "data.id",
         "billTotalAmount": "data.totalAmount"
@@ -350,11 +348,9 @@
       "path": "/bills/generate",
       "headers": { "Authorization": "Bearer {{financeToken}}" },
       "body": {
-        "customerId": "{{inactiveCustomerId}}",
-        "meterId": "{{meterId}}",
         "readingId": "{{readingId}}"
       },
-      "expectedStatus": 403,
+      "expectedStatus": 400,
       "expectedMessage": "Inactive customers cannot receive bills"
     },
     {

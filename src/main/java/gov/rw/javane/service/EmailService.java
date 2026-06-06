@@ -7,7 +7,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 @Service
 @RequiredArgsConstructor
@@ -141,6 +145,36 @@ public class EmailService {
             return true;
         } catch (MailException ex) {
             log.error("Failed to send notification email to {}: {}", toEmail, ex.getMessage());
+            return false;
+        }
+    }
+
+    public boolean sendCustomerHtmlEmail(String toEmail, String fullName, String plainMessage,
+                                         String subject, String htmlBody) {
+        String from = resolveFromAddress();
+        if (from == null || from.isBlank()) {
+            log.warn("HTML notification email not sent to {} — SMTP/from address is not configured", toEmail);
+            return false;
+        }
+
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(plainMessage + """
+
+                    You can view your bills and payment history in the Utility Billing System.
+
+                    Regards,
+                    WASAC / REG Utility Billing System
+                    """, htmlBody);
+            mailSender.send(mimeMessage);
+            log.info("Customer HTML notification email sent to {}", toEmail);
+            return true;
+        } catch (MessagingException | MailException ex) {
+            log.error("Failed to send HTML notification email to {}: {}", toEmail, ex.getMessage());
             return false;
         }
     }

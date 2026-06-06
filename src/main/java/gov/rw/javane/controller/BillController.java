@@ -34,7 +34,7 @@ public class BillController {
     public ResponseEntity<ApiResponse<BillResponse>> generate(@Valid @RequestBody BillGenerateRequest request) {
         BillResponse response = billService.generate(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("Bill generated — tariff applied automatically — customer notified", response));
+                .body(ApiResponse.ok("Bill generated — tariff applied automatically", response));
     }
 
     @GetMapping("/all")

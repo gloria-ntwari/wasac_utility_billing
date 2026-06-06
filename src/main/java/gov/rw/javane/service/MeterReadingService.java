@@ -44,6 +44,10 @@ public class MeterReadingService {
         if (request.currentReading().compareTo(request.previousReading()) <= 0) {
             throw new BadRequestException("Current reading must be greater than previous reading");
         }
+        if (request.readingDate().isBefore(meter.getInstallationDate())) {
+            throw new BadRequestException("Reading date (" + request.readingDate()
+                    + ") cannot be before meter installation date (" + meter.getInstallationDate() + ")");
+        }
 
         int billingMonth = request.readingDate().getMonthValue();
         int billingYear = request.readingDate().getYear();

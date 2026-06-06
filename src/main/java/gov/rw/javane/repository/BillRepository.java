@@ -15,6 +15,7 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
     boolean existsByMeterId(UUID meterId);
     List<Bill> findByStatus(BillStatus status);
     Optional<Bill> findByReadingId(UUID readingId);
+    boolean existsByMeterIdAndBillingMonthAndBillingYear(UUID meterId, int billingMonth, int billingYear);
 
     @Query("""
             SELECT DISTINCT b FROM Bill b

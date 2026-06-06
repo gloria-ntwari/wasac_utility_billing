@@ -38,6 +38,16 @@ public class BillingService {
         if (billRepository.findByReadingId(reading.getId()).isPresent()) {
             throw new BadRequestException("A bill already exists for reading id: " + reading.getId());
         }
+        if (billRepository.existsByMeterIdAndBillingMonthAndBillingYear(
+                meter.getId(), reading.getBillingMonth(), reading.getBillingYear())) {
+            throw new BadRequestException("Cannot generate a bill for "
+                    + String.format("%02d/%d", reading.getBillingMonth(), reading.getBillingYear())
+                    + " — a bill already exists for this meter.");
+        }
+        if (reading.getReadingDate().isBefore(meter.getInstallationDate())) {
+            throw new BadRequestException("Reading date (" + reading.getReadingDate()
+                    + ") cannot be before meter installation date (" + meter.getInstallationDate() + ")");
+        }
 
         int billingMonth = reading.getBillingMonth();
         int billingYear = reading.getBillingYear();

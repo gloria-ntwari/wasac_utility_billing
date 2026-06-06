@@ -31,7 +31,6 @@ public class BillService {
     private final BillRepository billRepository;
     private final CustomerRepository customerRepository;
     private final CustomerService customerService;
-    private final MeterService meterService;
     private final BillingService billingService;
     private final BillNotificationService billNotificationService;
     private final SecurityUtils securityUtils;
@@ -81,18 +80,19 @@ public class BillService {
 
     @Transactional
     public BillResponse generate(BillGenerateRequest request) {
-        Customer customer = customerService.getCustomer(request.customerId());
-        Meter meter = meterService.getMeter(request.meterId());
         MeterReading reading = billingService.getReading(request.readingId());
-
-        if (!reading.getMeter().getId().equals(meter.getId())) {
-            throw new BadRequestException("Reading does not belong to meter " + request.meterId());
+        Meter meter = reading.getMeter();
+        if (meter == null) {
+            throw new BadRequestException("Reading is not linked to a meter");
+        }
+        Customer customer = meter.getCustomer();
+        if (customer == null) {
+            throw new BadRequestException("Meter is not assigned to a customer");
         }
 
         Bill bill = billingService.generateBill(customer, meter, reading);
         Bill saved = billRepository.findByIdWithDetails(bill.getId())
                 .orElseThrow(() -> new NotFoundException("Bill not found after generation"));
-        billNotificationService.notifyBillGenerated(saved);
         return EntityMapper.toBillResponse(saved);
     }
 
